@@ -61,3 +61,7 @@ website/                 Landing page, published with GitHub Pages
 Load the `HighlightAndSave` folder with **Load unpacked**, then click the reload arrow on the extension after each change. Open tabs pick up a new version of `content.js` when they're refreshed.
 
 When releasing a new version, update `version` in `manifest.json`, rebuild the zip in `website/` so it contains a single `highlight-and-save` folder, and update the version and file name on the landing page.
+
+## License
+
+MIT, see [LICENSE](LICENSE).
