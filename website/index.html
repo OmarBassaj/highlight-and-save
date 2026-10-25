@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Highlight &amp; Save</title>
+<meta name="description" content="A free Chrome extension: switch it on, select text on any page, and it's saved with its source. Search, filter by site, copy and export later.">
+<link rel="icon" href="images/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&display=swap">
+<style>
+  /* Layout: one centred column; the hero pairs copy with a toolbar-and-popup mock, then a live demo, features, install steps and privacy */
+  :root {
+    --bg: #f3f6f9;
+    --surface: #ffffff;
+    --surface-2: #eef2f6;
+    --text: #1b1f24;
+    --muted: #66717f;
+    --line: #e2e8ee;
+    --accent: #1f8fd6;
+    --accent-soft: #e2f2fc;
+    --mint: #7be3a0;
+    --sky: #5bb8f5;
+    --gradient: linear-gradient(90deg, var(--mint), var(--sky));
+    --mark: rgba(91, 184, 245, 0.28);
+    --shadow: 0 10px 30px rgba(30, 60, 90, 0.09);
+    --shadow-small: 0 2px 10px rgba(30, 60, 90, 0.07);
+    --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+    --font-body: "DM Sans", "Segoe UI", system-ui, sans-serif;
+    --font-mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    --radius: 18px;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0e141b; --surface: #17202a; --surface-2: #1f2a36; --text: #e8eef4; --muted: #95a2b1;
+      --line: #253140; --accent: #5cc0f6; --accent-soft: rgba(77, 182, 242, 0.15); --mark: rgba(91, 184, 245, 0.3);
+      --shadow: 0 10px 30px rgba(0, 0, 0, 0.4); --shadow-small: 0 2px 10px rgba(0, 0, 0, 0.3);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e141b; --surface: #17202a; --surface-2: #1f2a36; --text: #e8eef4; --muted: #95a2b1;
+    --line: #253140; --accent: #5cc0f6; --accent-soft: rgba(77, 182, 242, 0.15); --mark: rgba(91, 184, 245, 0.3);
+    --shadow: 0 10px 30px rgba(0, 0, 0, 0.4); --shadow-small: 0 2px 10px rgba(0, 0, 0, 0.3);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 17px/1.6 var(--font-body);
+  }
+  ::selection { background: var(--mark); }
+  a { color: var(--accent); }
+  img { max-width: 100%; display: block; }
+  :focus-visible { outline: 3px solid var(--sky); outline-offset: 3px; border-radius: 6px; }
+
+  .wrap {
+    width: 100%;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding-left: max(20px, env(safe-area-inset-left, 0px));
+    padding-right: max(20px, env(safe-area-inset-right, 0px));
+  }
+
+  h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; letter-spacing: -0.02em; }
+  h2 { font-size: clamp(28px, 4vw, 40px); line-height: 1.1; font-weight: 800; }
+  h3 { font-size: 19px; font-weight: 600; letter-spacing: -0.01em; }
+  p { margin: 0; }
+  .lead { color: var(--muted); max-width: 60ch; }
+  .eyebrow {
+    font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent);
+  }
+
+  /* Buttons */
+  .button {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 14px 22px; border-radius: 14px; border: none;
+    font: 700 16px/1 var(--font-body); text-decoration: none; cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .button.primary { color: #10202c; background: var(--gradient); box-shadow: 0 8px 22px rgba(91, 184, 245, 0.35); }
+  .button.primary:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(91, 184, 245, 0.45); }
+  .button.secondary { color: var(--text); background: var(--surface); box-shadow: var(--shadow-small); }
+  .button.secondary:hover { transform: translateY(-2px); }
+  .button small { font-weight: 500; opacity: 0.75; }
+
+  /* Header */
+  .site-header { padding-block: 22px; }
+  .site-header .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--text); font: 800 19px var(--font-display); }
+  .brand img { width: 38px; height: 38px; border-radius: 10px; box-shadow: var(--shadow-small); }
+  .nav { display: flex; align-items: center; gap: 22px; }
+  .nav a { color: var(--muted); text-decoration: none; font-weight: 500; font-size: 15px; }
+  .nav a:hover { color: var(--text); }
+  .nav .button { padding: 10px 16px; font-size: 14px; color: #10202c; }
+  @media (max-width: 720px) { .nav a:not(.button) { display: none; } }
+
+  /* Hero */
+  .hero { padding-block: 40px 70px; position: relative; overflow: hidden; }
+  .hero::before, .hero::after {
+    content: ""; position: absolute; border-radius: 50%; background: var(--accent-soft); z-index: 0; pointer-events: none;
+  }
+  .hero::before { width: 520px; height: 520px; right: -140px; top: -120px; }
+  .hero::after { width: 22px; height: 22px; right: 46%; top: 70px; }
+  .hero .wrap { position: relative; z-index: 1; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); gap: 48px; align-items: center; }
+  @media (max-width: 880px) { .hero .wrap { grid-template-columns: minmax(0, 1fr); } }
+  .hero-copy { display: flex; flex-direction: column; gap: 22px; }
+  .hero h1 { font-size: clamp(42px, 7vw, 76px); line-height: 0.98; font-weight: 800; }
+  .hero h1 .marked {
+    background: linear-gradient(transparent 58%, var(--mark) 58%);
+    padding: 0 0.06em; border-radius: 4px;
+  }
+  .hero .lead { font-size: 19px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; }
+  .compat { font-size: 14px; color: var(--muted); }
+
+  /* Browser toolbar + popup mock */
+  .mock { position: relative; justify-self: center; width: min(400px, 100%); }
+  .toolbar {
+    display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+    background: var(--surface); border-radius: 16px; box-shadow: var(--shadow-small);
+  }
+  .address {
+    flex: 1; min-width: 0; padding: 7px 14px; border-radius: 999px; background: var(--surface-2);
+    color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .ext-icon { position: relative; width: 30px; height: 30px; flex-shrink: 0; }
+  .ext-icon img { width: 30px; height: 30px; border-radius: 8px; }
+  .badge {
+    position: absolute; right: -8px; bottom: -6px; min-width: 20px; padding: 0 5px; border-radius: 6px;
+    background: #e9eef3; color: #3a4450; font: 700 11px/17px var(--font-body); text-align: center;
+    border: 2px solid var(--surface); transition: transform 0.2s;
+  }
+  .badge.bump { transform: scale(1.25); }
+  /* Only the top of the popup, so the hero stays compact */
+  .popup-shot {
+    margin: 10px 0 0 auto; width: 88%; max-height: 540px; object-fit: cover; object-position: top;
+    border-radius: 16px; box-shadow: var(--shadow);
+  }
+
+  section { padding-block: 70px; }
+  .section-head { display: flex; flex-direction: column; gap: 14px; margin-bottom: 36px; }
+
+  /* Live demo */
+  .demo {
+    display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 20px;
+    background: var(--surface); border-radius: 24px; box-shadow: var(--shadow); padding: 28px;
+  }
+  @media (max-width: 820px) { .demo { grid-template-columns: minmax(0, 1fr); padding: 20px; } }
+  .demo-page { display: flex; flex-direction: column; gap: 14px; }
+  .demo-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .demo-article { font-size: 17px; line-height: 1.75; display: flex; flex-direction: column; gap: 12px; }
+  .demo-article h3 { font-size: 22px; }
+  .demo-hint { font-size: 14px; color: var(--muted); }
+  .switch-row {
+    display: inline-flex; align-items: center; gap: 10px; padding: 8px 12px 8px 14px; border-radius: 999px;
+    background: var(--surface-2); font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer;
+  }
+  .switch-row input { position: absolute; opacity: 0; pointer-events: none; }
+  .switch { position: relative; width: 42px; height: 24px; border-radius: 999px; background: var(--line); transition: background 0.2s; }
+  .switch::after {
+    content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%;
+    background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2); transition: transform 0.2s;
+  }
+  .switch-row input:checked + .switch { background: var(--gradient); }
+  .switch-row input:checked + .switch::after { transform: translateX(18px); }
+  .switch-row input:focus-visible + .switch { outline: 3px solid var(--sky); outline-offset: 2px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .switch-row.on .dot { background: #34c77b; box-shadow: 0 0 0 4px rgba(52, 199, 123, 0.2); }
+  .saved-panel { background: var(--bg); border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .saved-panel header { display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 15px; }
+  .count { font-size: 12px; font-weight: 700; padding: 1px 9px; border-radius: 999px; background: #e9eef3; color: #3a4450; }
+  .saved-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .saved-list li {
+    background: var(--surface); border-radius: 12px; padding: 10px 12px; font-size: 14px; line-height: 1.45;
+    box-shadow: var(--shadow-small); overflow-wrap: anywhere; animation: drop-in 0.25s ease-out;
+  }
+  .saved-list li.example { color: var(--muted); }
+  @keyframes drop-in { from { transform: translateY(-6px); opacity: 0.4; } }
+
+  /* Features */
+  .features { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  @media (max-width: 900px) { .features { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 560px) { .features { grid-template-columns: minmax(0, 1fr); } }
+  .feature { background: var(--surface); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow-small); display: flex; flex-direction: column; gap: 10px; }
+  .feature p { color: var(--muted); font-size: 15.5px; }
+  .feature-icon { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; color: #10202c; }
+  .tint-mint { background: #dcf6e7; } .tint-sky { background: #ddf0fd; } .tint-peach { background: #fff1d6; } .tint-pink { background: #ffe2e8; }
+  kbd {
+    font: 600 13px var(--font-mono); padding: 2px 7px; border-radius: 6px; background: var(--surface-2); color: var(--text);
+    border-bottom: 2px solid var(--line); white-space: nowrap;
+  }
+
+  /* Screens */
+  .screens { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; align-items: start; }
+  @media (max-width: 820px) { .screens { grid-template-columns: minmax(0, 1fr); max-width: 380px; margin: 0 auto; } }
+  /* All three popups the same size (their real 360 x 600), centred in each column */
+  .screens figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .screens img {
+    width: 100%; max-width: 300px; height: auto; aspect-ratio: 360 / 600;
+    border-radius: 16px; box-shadow: 0 0 0 1px var(--line), var(--shadow);
+  }
+  .screens figcaption { width: 100%; max-width: 300px; font-size: 15px; color: var(--muted); }
+  .screens figcaption strong { color: var(--text); display: block; }
+
+  /* Install */
+  .install { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; align-items: start; }
+  @media (max-width: 860px) { .install { grid-template-columns: minmax(0, 1fr); } }
+  .steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; counter-reset: step; }
+  .steps li {
+    counter-increment: step; display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 14px; align-items: start;
+    background: var(--surface); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow-small);
+  }
+  .steps li::before {
+    content: counter(step); width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center;
+    font: 800 18px var(--font-display); color: #10202c; background: var(--gradient);
+  }
+  .steps h3 { font-size: 17px; margin-bottom: 4px; }
+  .steps p { color: var(--muted); font-size: 15.5px; }
+  .copy-field { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .copy-field code {
+    font: 600 14px var(--font-mono); padding: 8px 12px; border-radius: 10px; background: var(--surface-2); user-select: all;
+  }
+  .copy-field button {
+    font: 700 13px var(--font-body); padding: 8px 14px; border-radius: 10px; border: none; cursor: pointer;
+    background: var(--accent-soft); color: var(--accent);
+  }
+  .note { margin-top: 16px; font-size: 14.5px; color: var(--muted); }
+
+  /* Privacy */
+  .privacy { background: var(--surface); border-radius: 24px; padding: 32px; box-shadow: var(--shadow-small); display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 32px; }
+  @media (max-width: 860px) { .privacy { grid-template-columns: minmax(0, 1fr); padding: 22px; } }
+  .perm-table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  .perm-table th, .perm-table td { text-align: left; padding: 12px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .perm-table th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 700; }
+  .perm-table td:first-child { font-family: var(--font-mono); font-size: 13.5px; white-space: nowrap; }
+  .perm-table td:last-child { color: var(--muted); }
+  .table-scroll { overflow-x: auto; }
+
+  /* Final call and footer */
+  .cta { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 18px; }
+  .cta img { width: 72px; height: 72px; border-radius: 20px; box-shadow: var(--shadow); }
+  footer { padding-block: 30px 40px; color: var(--muted); font-size: 14px; }
+  footer .wrap { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 22px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+    html { scroll-behavior: auto; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="#top"><img src="images/icon.svg" alt="">Highlight &amp; Save</a>
+    <nav class="nav" aria-label="Page">
+      <a href="#try">Try it</a>
+      <a href="#features">Features</a>
+      <a href="#install">Install</a>
+      <a href="#privacy">Privacy</a>
+      <a class="button primary" href="highlight-and-save-1.6.zip" download>Download</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <div class="wrap">
+      <div class="hero-copy">
+        <span class="eyebrow">Free Chrome extension · version 1.6</span>
+        <h1>Select text. <span class="marked">It's saved.</span></h1>
+        <p class="lead">Turn on saving, then read as usual. Every piece of text you select is kept with the page it came from, ready to search, copy or export when you're done.</p>
+        <div class="actions">
+          <a class="button primary" href="highlight-and-save-1.6.zip" download>
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 4h2v9.2l3.6-3.6 1.4 1.4-6 6-6-6 1.4-1.4 3.6 3.6zM5 18h14v2H5z"/></svg>
+            Download <small>.zip · 23 KB</small>
+          </a>
+          <a class="button secondary" href="#install">How to install</a>
+        </div>
+        <p class="compat">For Chrome, and other Chromium browsers such as Edge and Brave.</p>
+      </div>
+
+      <div class="mock" aria-label="The extension in the Chrome toolbar, with its popup open">
+        <div class="toolbar">
+          <span class="address">en.wikipedia.org/wiki/Highlighter</span>
+          <span class="ext-icon"><img src="images/icon.svg" alt=""><span class="badge" id="hero-badge">6</span></span>
+        </div>
+        <picture>
+          <source srcset="images/popup-dark.png" media="(prefers-color-scheme: dark)">
+          <img class="popup-shot" src="images/popup-light.png" width="720" height="1200" alt="The Highlight & Save popup: saving is on, six saved highlights grouped under Today, with site icons for Wikipedia, MDN, NASA, GitHub and BBC.">
+        </picture>
+      </div>
+    </div>
+  </section>
+
+  <section id="try">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Try it here</span>
+        <h2>Switch saving on and select some text below</h2>
+        <p class="lead">This works the same way as the extension does on any website: select with the mouse, let go, and it's saved. Nothing leaves this page.</p>
+      </div>
+
+      <div class="demo">
+        <div class="demo-page">
+          <div class="demo-bar">
+            <label class="switch-row" id="demo-switch-row">
+              <span class="dot"></span>
+              <span id="demo-switch-label">Saving off</span>
+              <input type="checkbox" id="demo-switch">
+              <span class="switch" aria-hidden="true"></span>
+            </label>
+            <span class="demo-hint" id="demo-hint">Turn saving on first.</span>
+          </div>
+          <article class="demo-article" id="demo-article">
+            <h3>How highlighters work</h3>
+            <p>A highlighter marks text with a bright, see-through ink. The colour is strong enough to catch your eye when you skim the page later, but light enough that the words underneath stay easy to read.</p>
+            <p>Most highlighter ink glows under daylight because it turns invisible ultraviolet light into visible colour. That's why yellow and green look almost brighter than the white paper around them.</p>
+          </article>
+        </div>
+        <div class="saved-panel" aria-live="polite">
+          <header><span>Saved</span><span class="count" id="demo-count">0 saved</span></header>
+          <ul class="saved-list" id="demo-list">
+            <li class="example">Your selections will appear here.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="features">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Features</span>
+        <h2>Everything you saved, easy to find again</h2>
+      </div>
+      <div class="features">
+        <article class="feature">
+          <span class="feature-icon tint-mint"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17 7H7a5 5 0 0 0 0 10h10a5 5 0 0 0 0-10zm0 8a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/></svg></span>
+          <h3>One switch</h3>
+          <p>Turn saving on when you start reading and off when you're done. Saving always starts off when Chrome opens, so it's never left on by mistake.</p>
+        </article>
+        <article class="feature">
+          <span class="feature-icon tint-sky"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M20 5H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm-9 3h2v2h-2zm0 3h2v2h-2zM8 8h2v2H8zm0 3h2v2H8zm-3 0h2v2H5zm0-3h2v2H5zm11 8H8v-2h8zm0-3h-2v-2h2zm0-3h-2V8h2zm3 3h-2v-2h2zm0-3h-2V8h2z"/></svg></span>
+          <h3>Keyboard shortcut</h3>
+          <p>Press <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>S</kbd> to switch saving on or off without opening anything. The toolbar badge shows your count while it's on.</p>
+        </article>
+        <article class="feature">
+          <span class="feature-icon tint-peach"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm6.9 6h-2.9a15.7 15.7 0 0 0-1.4-3.6A8 8 0 0 1 18.9 8zM12 4a14 14 0 0 1 1.9 4h-3.8A14 14 0 0 1 12 4zM4.3 14a8.2 8.2 0 0 1 0-4h3.4a16.5 16.5 0 0 0 0 4zm.8 2h2.9a15.7 15.7 0 0 0 1.4 3.6A8 8 0 0 1 5.1 16zM8 8H5.1a8 8 0 0 1 4.3-3.6A15.7 15.7 0 0 0 8 8zm4 12a14 14 0 0 1-1.9-4h3.8A14 14 0 0 1 12 20zm2.3-6H9.7a14.7 14.7 0 0 1 0-4h4.6a14.7 14.7 0 0 1 0 4zm.3 5.6a15.7 15.7 0 0 0 1.4-3.6h2.9a8 8 0 0 1-4.3 3.6zm1.7-5.6a16.5 16.5 0 0 0 0-4h3.4a8.2 8.2 0 0 1 0 4z"/></svg></span>
+          <h3>Filter by site</h3>
+          <p>Every site you saved from gets an icon under the search bar. Click one to see only what you saved there.</p>
+        </article>
+        <article class="feature">
+          <span class="feature-icon tint-pink"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M10 2a8 8 0 0 1 6.3 12.9l5.4 5.4-1.4 1.4-5.4-5.4A8 8 0 1 1 10 2zm0 2a6 6 0 1 0 0 12 6 6 0 0 0 0-12z"/></svg></span>
+          <h3>Search and dates</h3>
+          <p>Search your text and page titles. Highlights are grouped under Today, Yesterday, This week and by month.</p>
+        </article>
+        <article class="feature">
+          <span class="feature-icon tint-sky"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11z"/></svg></span>
+          <h3>Copy and export</h3>
+          <p>Copy one highlight with a click, copy them all at once, or export them as a plain text file.</p>
+        </article>
+        <article class="feature">
+          <span class="feature-icon tint-mint"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12.5 8c-2.7 0-5.1 1-7 2.6L2 7v9h9l-3.6-3.6A8 8 0 0 1 20.2 16l2.4-.8A10.5 10.5 0 0 0 12.5 8z"/></svg></span>
+          <h3>Undo</h3>
+          <p>Deleted something, or cleared everything? Undo puts it back exactly where it was.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section id="screens">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Looks at home</span>
+        <h2>Light and dark, following your system</h2>
+      </div>
+      <div class="screens">
+        <figure>
+          <img src="images/popup-light.png" width="720" height="1200" alt="The popup in light mode, with saved highlights from several sites.">
+          <figcaption><strong>Light mode</strong>Your highlights with their site icons, newest first.</figcaption>
+        </figure>
+        <figure>
+          <img src="images/popup-dark.png" width="720" height="1200" alt="The same popup in dark mode.">
+          <figcaption><strong>Dark mode</strong>Switches automatically with Chrome or your computer.</figcaption>
+        </figure>
+        <figure>
+          <img src="images/popup-filter.png" width="720" height="1200" alt="The popup filtered to one site, with the info box showing the source page and the time it was saved.">
+          <figcaption><strong>Source and time</strong>Filtered to one site, with the info box open on a highlight.</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section id="install">
+    <div class="wrap install">
+      <div class="section-head">
+        <span class="eyebrow">Install</span>
+        <h2>Ready in about a minute</h2>
+        <p class="lead">Highlight &amp; Save isn't in the Chrome Web Store yet, so you add it from the downloaded folder. It's a one-time setup.</p>
+        <div class="actions">
+          <a class="button primary" href="highlight-and-save-1.6.zip" download>Download .zip</a>
+        </div>
+      </div>
+      <div>
+        <ol class="steps">
+          <li>
+            <div>
+              <h3>Download and unzip</h3>
+              <p>Download the .zip and extract it. You'll get a folder named <strong>highlight-and-save</strong>. Keep it somewhere it won't be deleted, because Chrome loads the extension from it.</p>
+            </div>
+          </li>
+          <li>
+            <div>
+              <h3>Open the extensions page</h3>
+              <p>Copy this address into Chrome's address bar and press Enter.</p>
+              <div class="copy-field">
+                <code id="ext-address">chrome://extensions</code>
+                <button type="button" id="copy-address">Copy</button>
+              </div>
+            </div>
+          </li>
+          <li>
+            <div>
+              <h3>Turn on Developer mode</h3>
+              <p>Use the switch in the top-right corner of the extensions page.</p>
+            </div>
+          </li>
+          <li>
+            <div>
+              <h3>Load the folder</h3>
+              <p>Click <strong>Load unpacked</strong> and choose the <strong>highlight-and-save</strong> folder. Pin the icon from the puzzle-piece menu so the switch is always one click away.</p>
+            </div>
+          </li>
+        </ol>
+        <p class="note">To update later, replace the folder with the new version and click the reload arrow on the extension. Your saved highlights stay.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="privacy">
+    <div class="wrap">
+      <div class="privacy">
+        <div class="section-head" style="margin-bottom: 0">
+          <span class="eyebrow">Privacy</span>
+          <h2>Your highlights stay on your computer</h2>
+          <p class="lead">There's no account and no server. Highlights are stored in your browser and are never sent anywhere. Nothing is saved while the switch is off.</p>
+        </div>
+        <div class="table-scroll">
+          <table class="perm-table">
+            <thead><tr><th>Permission</th><th>Why it's needed</th></tr></thead>
+            <tbody>
+              <tr><td>storage</td><td>Keeps your highlights and the on/off setting in your browser.</td></tr>
+              <tr><td>All websites</td><td>Notices text you select, on any page, while saving is on.</td></tr>
+              <tr><td>scripting</td><td>Starts working in tabs that were already open when you installed it.</td></tr>
+              <tr><td>favicon</td><td>Shows each site's icon next to your highlights.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap cta">
+      <img src="images/icon.svg" alt="">
+      <h2>Start saving what you read</h2>
+      <a class="button primary" href="highlight-and-save-1.6.zip" download>Download Highlight &amp; Save</a>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Highlight &amp; Save · version 1.6</span>
+    <span>Free to use. Works offline.</span>
+  </div>
+</footer>
+
+<script>
+  // Copy chrome://extensions (web pages can't link to it)
+  const copyButton = document.getElementById("copy-address");
+  copyButton.addEventListener("click", async () => {
+    const text = document.getElementById("ext-address").textContent;
+    try {
+      await navigator.clipboard.writeText(text);
+      copyButton.textContent = "Copied";
+    } catch {
+      const range = document.createRange();
+      range.selectNodeContents(document.getElementById("ext-address"));
+      getSelection().removeAllRanges();
+      getSelection().addRange(range);
+      copyButton.textContent = "Press Ctrl+C";
+    }
+    setTimeout(() => (copyButton.textContent = "Copy"), 1800);
+  });
+
+  // Live demo: while the switch is on, text selected in the article is "saved"
+  const demoSwitch = document.getElementById("demo-switch");
+  const switchRow = document.getElementById("demo-switch-row");
+  const switchLabel = document.getElementById("demo-switch-label");
+  const hint = document.getElementById("demo-hint");
+  const article = document.getElementById("demo-article");
+  const list = document.getElementById("demo-list");
+  const count = document.getElementById("demo-count");
+  const heroBadge = document.getElementById("hero-badge");
+  let saved = 0;
+  let lastSaved = "";
+
+  demoSwitch.addEventListener("change", () => {
+    const on = demoSwitch.checked;
+    switchRow.classList.toggle("on", on);
+    switchLabel.textContent = on ? "Saving on" : "Saving off";
+    hint.textContent = on ? "Now select a few words in the text below." : "Turn saving on first.";
+  });
+
+  article.addEventListener("mouseup", () => {
+    if (!demoSwitch.checked) return;
+    const text = getSelection().toString().trim();
+    if (!text || text === lastSaved) return;
+    lastSaved = text;
+    if (!saved) list.innerHTML = "";
+    saved++;
+    const item = document.createElement("li");
+    item.textContent = text;
+    list.prepend(item);
+    count.textContent = `${saved} saved`;
+    heroBadge.textContent = String(6 + saved);
+    heroBadge.classList.add("bump");
+    setTimeout(() => heroBadge.classList.remove("bump"), 200);
+    hint.textContent = "Saved. The selection stays, just like in the extension.";
+  });
+</script>
+</body>
+</html>

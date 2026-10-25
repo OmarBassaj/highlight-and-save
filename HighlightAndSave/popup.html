@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Highlight & Save</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <!-- Soft bubbles behind the header -->
+    <div class="deco deco-bubble-large" aria-hidden="true"></div>
+    <div class="deco deco-bubble-small" aria-hidden="true"></div>
+
+    <header class="header">
+      <div class="brand">
+        <img class="logo" src="icons/icon.svg" alt="" width="40" height="40">
+        <div>
+          <h1>Highlight &amp; Save</h1>
+          <span class="count-pill" id="count">0 saved</span>
+        </div>
+      </div>
+      <div class="menu-wrap">
+        <button class="round-button" id="menu-button" aria-label="More actions" aria-haspopup="menu" aria-expanded="false" title="More actions">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M5 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>
+        </button>
+        <div class="menu" id="menu" role="menu" hidden>
+          <button role="menuitem" id="copy-all">Copy all</button>
+          <button role="menuitem" id="export-highlights">Export as .txt</button>
+          <button role="menuitem" id="remove-duplicates">Remove duplicates</button>
+          <button role="menuitem" id="clear-highlights" class="danger">Clear all</button>
+        </div>
+      </div>
+    </header>
+
+    <label class="saving-card" id="saving-card">
+      <input type="checkbox" id="saving-toggle">
+      <span class="saving-text">
+        <span class="status-pill"><span class="dot"></span><span id="saving-label">Saving off</span></span>
+        <span class="saving-hint" id="saving-hint">Turn on, then select text on any page</span>
+        <span class="saving-shortcut" id="saving-shortcut" hidden></span>
+      </span>
+      <span class="switch" aria-hidden="true"></span>
+    </label>
+
+    <div class="search">
+      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M10 2a8 8 0 0 1 6.3 12.9l5.4 5.4-1.4 1.4-5.4-5.4A8 8 0 1 1 10 2zm0 2a6 6 0 1 0 0 12 6 6 0 0 0 0-12z"/></svg>
+      <input type="text" id="search-bar" placeholder="Search highlights or sites" aria-label="Search highlights">
+      <kbd id="search-key" title="Press / to search">/</kbd>
+      <button id="clear-search" class="clear-search" aria-label="Clear search" hidden>
+        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="m6.4 5 5.6 5.6L17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4z"/></svg>
+      </button>
+    </div>
+
+    <!-- One icon per site you've saved from; click one to show only its highlights -->
+    <div id="site-bar-wrap" class="site-bar-wrap" hidden>
+      <button id="site-scroll-left" class="site-scroll left" aria-label="Show earlier sites" title="Show earlier sites" hidden>
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4-4.6-4.6z"/></svg>
+      </button>
+      <div id="site-bar" class="site-bar" role="toolbar" aria-label="Filter by site"></div>
+      <button id="site-scroll-right" class="site-scroll right" aria-label="Show more sites" title="Show more sites" hidden>
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M8.6 16.6 10 18l6-6-6-6-1.4 1.4 4.6 4.6z"/></svg>
+      </button>
+    </div>
+
+    <div id="empty-state" class="empty" hidden>
+      <svg viewBox="0 0 120 90" width="120" height="90" aria-hidden="true">
+        <circle class="fill-pink" cx="98" cy="18" r="10"/>
+        <path class="stroke-blue" d="M6 78c6-8 12 8 18 0s12 8 18 0" fill="none"/>
+        <rect class="fill-surface" x="22" y="12" width="64" height="70" rx="6"/>
+        <rect class="fill-yellow" x="30" y="26" width="40" height="8" rx="2"/>
+        <rect class="fill-muted" x="30" y="42" width="48" height="5" rx="2"/>
+        <rect class="fill-muted" x="30" y="53" width="36" height="5" rx="2"/>
+        <rect class="fill-muted" x="30" y="64" width="44" height="5" rx="2"/>
+        <g transform="rotate(35 88 52)">
+          <rect class="fill-yellow" x="80" y="30" width="16" height="40" rx="3"/>
+          <path class="fill-ink" d="M82 70h12l-3 9h-6z"/>
+        </g>
+      </svg>
+      <p class="empty-title">Nothing saved yet</p>
+      <p class="empty-hint">Turn on saving above, then select text on any page.</p>
+    </div>
+    <p id="no-matches" class="no-matches" hidden></p>
+
+    <ul id="highlights-list"></ul>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden>
+    <span id="toast-text"></span>
+    <button id="toast-undo" class="toast-undo" hidden>Undo</button>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
